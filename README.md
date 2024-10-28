@@ -34,6 +34,35 @@ This Python script automates the process of collecting, processing, and storing 
 
 - **Database**: PostgreSQL should be installed and running with proper credentials configured within the script.
 
+#### Flowchart for `Script 1: conference_speakers_1.py`
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Setup Logging]
+    B --> C[Create Database If Not Exists]
+    C --> D[Fetch Unscraped Conferences from Google Sheets]
+    
+    D --> E{Are there Unscraped Conferences?}
+    E -- No --> G[End]
+    
+    E -- Yes --> H[Iterate Over Each Unscraped Conference]
+    H --> I{Check If Conference Name and Year Are Provided}
+    
+    I -- No --> G
+    I -- Yes --> K[Process Conference]
+    
+    K --> L[Scrape Speakers from Website]
+    L --> M[Scrape Speakers from YouTube Playlist]
+    
+    M --> N[Merge Data from Website and YouTube]
+    N --> O{Is Merged Data Empty?}
+    
+    O -- No --> P[Insert Data into Database]
+    P --> G
+    
+    O -- Yes --> G
+```
+
 
 ### Script 2: `conference_speakers_2.py`
 
@@ -64,6 +93,52 @@ This Python script automates the process of matching conference speakers with th
 
 - **Google Sheets**: The final output is uploaded to Google Sheets, requiring a configured API to handle data transfer.
 
+#### Flowchart for `Script 2: conference_speakers_2.py`
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Setup Logging]
+    B --> C[Create Database Session and Engine]
+    
+    C --> D[Load Conference Speakers Without LinkedIn URLs]
+    D --> F[Load LinkedIn Users from Database]
+    
+    F --> G[Match Conference Speakers with LinkedIn Users]
+    
+    G --> H{Are LinkedIn Users Found?}
+    
+    H -- No --> J[Upload Conference Speakers with Missing LinkedIn URLs to Google Sheet] --> K[End]
+    
+    H -- Yes --> M[Update Conference Speakers with Matched LinkedIn URLs]
+    M --> N[Reload Updated Conference Speakers]
+    
+    N --> J
+```
+
+#### Flowchart for Creating and Setting Up **Phantom Buster**
+
+```mermaid
+flowchart TD
+    O1[Select LinkedIn Search Export Phantom]--> O2[Select Spreadsheet URL]
+    O2 --> O3[Paste URL from Uploaded CSV to Google Sheet Worksheet]
+    
+    O3 --> O4[Select Search Category: People]
+    O4 --> O5[Select Connection Degree: 1st, 2nd, and 3rd]
+    O5 --> O6[Select Name Column as Column Containing Searches]
+    
+    O6 --> O7[Connect LinkedIn Session Cookie]
+    
+    O7 --> O8[Set Results to Export Per Launch: 1000]
+    O8 --> O9[Set Results to Export Per Search URL: 5]
+    O9 --> O10[Set Rows to Process Per Launch: 200]
+    
+    O10 --> O11[Schedule Phantom to Run Daily]
+    
+    O11 --> Q[Add Phantom Buster API Key and Agent ID to .env]
+    
+    Q --> R[Launch]
+    R --> J[End]
+```
 
 ### Script 3: `conference_speakers_3.py`
 
@@ -93,6 +168,30 @@ This Python script is responsible for finding and updating LinkedIn URLs for con
 
 - **OpenAI API**: Access to the OpenAI API is necessary for retrieving filtered LinkedIn profiles in scenarios with multiple potential matches.
 
+#### Flowchart for `Script 3: conference_speakers_3.py`
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Setup Logging]
+    
+    B --> C[Fetch Data from LinkedIn Search Export phantom]
+    C --> D{Is Data Empty?}
+    
+    D -- Yes --> F[End]
+    
+    D -- No --> H[Find 1:1 Matches]
+    H --> J[Find 1:n Matches]
+
+    J --> L[Concatenate Results from 1:1 and 1:n Matches]
+    
+    L --> M{Is Result DataFrame Empty?}
+    
+    M -- Yes --> F
+    M -- No --> O[Update Conference Speakers with New Data]
+    
+    O --> F
+```
+
   
 
 ### Script 4: `conference_speakers_4.py`
@@ -121,3 +220,27 @@ This Python script is designed to merge data about conference speakers with thei
 - **Database**: The script requires access to a database storing information about speakers and their talks. The database is accessed through SQLAlchemy.
 
 - **Google Sheets**: The final output is uploaded to Google Sheets, requiring a configured API to handle data transfer.
+
+#### Flowchart for `Script 4: conference_speakers_4.py`
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Setup Logging]
+
+    B --> C[Create Database Session and Engine]
+
+    C --> D[Fetch Speaker Data]
+    D --> E[Fetch Conference Talks Data]
+
+    E --> F{Are Speaker Data or Conference Talks Data Empty?}
+
+    F -- Yes --> H[End]
+    
+    F -- No --> J[Merge Speaker and Conference Talks Data]
+    
+    J --> L[Build Final Speaker Talks DataFrame]
+
+    L --> M[Upload Speaker Talks to Google Sheets]
+   
+    M --> H[End]
+```

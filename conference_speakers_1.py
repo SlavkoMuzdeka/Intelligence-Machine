@@ -201,8 +201,6 @@ def main():
 
     df = get_unscraped_conferences()
 
-    df = df[:2]
-
     if df.empty:
         logger.info("All conferences have been scraped. Nothing to process.")
         return
