@@ -41,9 +41,6 @@ def match_conf_speakers_with_linkedIn_users(conf_speakers_df, linkedIn_users_df)
 
     logger.info("Matching conference speakers with LinkedIn users...")
 
-    conf_speakers_df.to_csv("see.csv", index=False)
-    linkedIn_users_df.to_csv("see2.csv", index=False)
-
     # Merge on normalized names
     merged_df = pd.merge(
         conf_speakers_df.drop(columns=["linkedin_url"]),
