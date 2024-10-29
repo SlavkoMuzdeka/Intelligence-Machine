@@ -4,8 +4,8 @@ import pandas as pd
 from dotenv import load_dotenv
 from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
+    get_speakers,
     get_conf_talks,
-    get_conf_speakers,
     create_database_session_and_engine,
 )
 
@@ -112,7 +112,7 @@ def main():
     session, _ = create_database_session_and_engine()
 
     try:
-        speakers_df = get_conf_speakers(session)
+        speakers_df = get_speakers(session)
         conf_talks_df = get_conf_talks(session)
 
         if speakers_df.empty or conf_talks_df.empty:

@@ -10,7 +10,7 @@ from pytube import Playlist
 from openai import RateLimitError
 from utils.google_sheets_utils import get_gs_conferences
 from utils.database_utils import (
-    insert_conf_speakers,
+    insert_talks,
     create_database_if_not_exists,
     create_database_session_and_engine,
 )
@@ -232,7 +232,7 @@ def main():
             merged_df = merge_website_df_with_youtube_df(website_df, youtube_df)
 
             if not merged_df.empty:
-                insert_conf_speakers(merged_df, session)
+                insert_talks(merged_df, session)
                 logger.info(f"Inserted data for {conf_name} ({conf_year}).")
                 logger.info(
                     f"Successfully scraped speakers from {conf_name} conference"

@@ -7,9 +7,9 @@ load_dotenv(override=True)
 
 from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
-    get_conf_speakers,
+    get_speakers,
+    update_speakers,
     get_linkedIn_users,
-    update_conf_speakers,
     create_database_session_and_engine,
 )
 
@@ -68,7 +68,7 @@ def main():
         session, _ = create_database_session_and_engine()
 
         # Step 1: Load conference speakers without LinkedIn URLs
-        conf_speakers_df = get_conf_speakers(session=session, filter=True)
+        conf_speakers_df = get_speakers(session=session, filter=True)
         logger.info(
             f"Conference speakers without linkedin url - total {len(conf_speakers_df)}"
         )
@@ -84,9 +84,9 @@ def main():
         # Step 4: Update speakers' LinkedIn URLs if matches found
         if not matched_df.empty:
             logger.info(f"Find {len(matched_df)} speakers LinkedIn URLs...")
-            update_conf_speakers(matched_df, session)
+            update_speakers(matched_df, session)
 
-            conf_speakers_df = get_conf_speakers(session=session, filter=True)
+            conf_speakers_df = get_speakers(session=session, filter=True)
         else:
             logger.info("There is no matched data")
 
