@@ -12,6 +12,7 @@ from utils.google_sheets_utils import get_gs_conferences
 from utils.database_utils import (
     insert_conf_speakers,
     create_database_if_not_exists,
+    create_database_session_and_engine,
 )
 from utils.conference_speakers_utils import (
     get_db_conferences,
@@ -198,6 +199,7 @@ def main():
     setup_logging()
 
     create_database_if_not_exists()
+    session, _ = create_database_session_and_engine()
 
     df = get_unscraped_conferences()
 
@@ -230,7 +232,7 @@ def main():
             merged_df = merge_website_df_with_youtube_df(website_df, youtube_df)
 
             if not merged_df.empty:
-                insert_conf_speakers(merged_df)
+                insert_conf_speakers(merged_df, session)
                 logger.info(f"Inserted data for {conf_name} ({conf_year}).")
                 logger.info(
                     f"Successfully scraped speakers from {conf_name} conference"

@@ -2,18 +2,19 @@ import logging
 import pandas as pd
 
 from dotenv import load_dotenv
-from utils.google_sheets_utils import upload_conf_speakers_and_topics
+from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
     get_conf_talks,
     get_conf_speakers,
     create_database_session_and_engine,
 )
 
-
 load_dotenv(override=True)
 
 
 logger = logging.getLogger(__name__)
+SHEET_ID_KEY = "CONF_LIST_SHEET_ID"
+SHEET_NAME_KEY = "CONF_LIST_OF_SPEAKERS_AND_TOPICS_SHEET_NAME"
 
 
 def _setup_logging():
@@ -119,7 +120,7 @@ def main():
             return
 
         speaker_talks_df = find_speaker_talks(speakers_df, conf_talks_df)
-        upload_conf_speakers_and_topics(speaker_talks_df)
+        upload_data_to_gs(speaker_talks_df, SHEET_ID_KEY, SHEET_NAME_KEY)
     except Exception as e:
         logging.error(f"An error occurred in the main function: {e}")
 

@@ -2,7 +2,7 @@ import logging
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy import Column, ForeignKey, Integer, String, ForeignKeyConstraint, Table
+from sqlalchemy import Column, ForeignKey, Integer, String, ForeignKeyConstraint
 
 Base = declarative_base()
 
@@ -278,25 +278,6 @@ class Talk(Base):
         }
 
 
-# Association table for the many-to-many relationship
-user_company_association = Table(
-    "user_company_association",
-    Base.metadata,
-    Column(
-        "user_profile_url",
-        String,
-        ForeignKey("linkedin_user.profile_url"),
-        primary_key=True,
-    ),
-    Column(
-        "company_profile_url",
-        String,
-        ForeignKey("linkedin_company.profile_url"),
-        primary_key=True,
-    ),
-)
-
-
 class LinkedInUser(Base):
     """
     Represents a LinkedIn user profile.
@@ -321,7 +302,7 @@ class LinkedInUser(Base):
 
     companies = relationship(
         "LinkedInCompany",
-        secondary=user_company_association,
+        secondary="user_company_association",
         back_populates="employees",
     )
 
@@ -405,6 +386,7 @@ class LinkedInUser(Base):
             "last_name": self.last_name,
             "description": self.description,
             "location": self.location,
+            "status_code": self.status_code,
             "companies": [
                 {"company_name": company.name, "company_url": company.profile_url}
                 for company in self.companies
@@ -427,7 +409,9 @@ class LinkedInCompany(Base):
     name = Column(String, nullable=False)
 
     employees = relationship(
-        "LinkedInUser", secondary=user_company_association, back_populates="companies"
+        "LinkedInUser",
+        secondary="user_company_association",
+        back_populates="companies",
     )
 
     def __init__(self, profile_url: str, name: str):
@@ -494,4 +478,117 @@ class LinkedInCompany(Base):
         return {
             "profile_url": self.profile_url,
             "name": self.name,
+        }
+
+
+class UserCompanyAssociation(Base):
+    """
+    Represents the association between a LinkedIn user and a company,
+    with a unique employment status for each relationship.
+
+    Attributes:
+        association_id (int): Unique identifier for each association (Primary Key).
+        user_profile_url (str): The LinkedIn profile URL of the user (Foreign Key).
+        company_profile_url (str): The LinkedIn profile URL of the company (Foreign Key).
+        status_code (int): Employment status of the user in the company.
+    """
+
+    __tablename__ = "user_company_association"
+
+    association_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_profile_url = Column(
+        String, ForeignKey("linkedin_user.profile_url"), nullable=False
+    )
+    company_profile_url = Column(
+        String, ForeignKey("linkedin_company.profile_url"), nullable=False
+    )
+    status_code = Column(Integer, nullable=False)
+
+    # Define foreign key constraints
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_profile_url"],
+            ["linkedin_user.profile_url"],
+        ),
+        ForeignKeyConstraint(
+            ["company_profile_url"],
+            ["linkedin_company.profile_url"],
+        ),
+    )
+
+    def __init__(
+        self, user_profile_url: str, company_profile_url: str, status_code: int
+    ):
+        """
+        Initializes a UserCompanyAssociation instance with the provided details.
+        """
+        self.user_profile_url = user_profile_url
+        self.company_profile_url = company_profile_url
+        self.status_code = status_code
+
+    def set_status_code(self, code: int):
+        """
+        Sets the status code for the user-company relationship.
+
+        Args:
+            code (int): The status code to set.
+        """
+        if code in (0, 1, 2, 3):
+            self.status_code = code
+        else:
+            raise ValueError("Invalid status code. Must be 0, 1, 2, or 3.")
+
+    def insert(self, session):
+        """
+        Adds the UserCompanyAssociation instance to the database and commits the transaction.
+
+        Raises:
+            IntegrityError: If the UserCompanyAssociation already exists or references invalid foreign keys.
+
+        Example:
+            user_company_association = UserCompanyAssociation(user_profile_url='<profile_url>', company_profile_url='<company_url>', status_code=0)
+            user_company_association.insert(session)
+        """
+        try:
+            user_company_association_info = f"{self.user_profile_url} - {self.company_profile_url} - {self.status_code}"
+            session.add(self)
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            logger.error(
+                f"Cannot insert user company association - {user_company_association_info}"
+            )
+
+    def update(self, session):
+        """
+        Commits any changes made to the UserCompanyAssociation instance to the database.
+        The UserCompanyAssociation instance must already exist in the database.
+
+        Example:
+            user_company_association = UserCompanyAssociation.query.filter_by(association_id=1).one_or_none()
+            user_company_association.status_code = 2
+            user_company_association.update()
+        """
+        session.commit()
+
+    def delete(self, session):
+        """
+        Deletes the UserCompanyAssociation instance from the database and commits the transaction.
+        The UserCompanyAssociation instance must already exist in the database.
+
+        Example:
+            user_company_association = UserCompanyAssociation.query.filter_by(association_id=1).one_or_none()
+            user_company_association.delete()
+        """
+        session.delete(self)
+        session.commit()
+
+    def format(self):
+        """
+        Returns a dictionary representation of the UserCompanyAssociation instance.
+        """
+        return {
+            "user_profile_url": self.user_profile_url,
+            "company_profile_url": self.company_profile_url,
+            "status_code": self.status_code,
         }

@@ -5,9 +5,12 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-from utils.database_utils import update_conf_speakers
 from utils.openai_utils import get_openai_filtered_profiles
 from models.phantom.SearchExportScraper import SearchExportScraper
+from utils.database_utils import (
+    update_conf_speakers,
+    create_database_session_and_engine,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +121,8 @@ def main():
     """Main function to execute the script logic."""
     setup_logging()
 
+    session, _ = create_database_session_and_engine()
+
     try:
         df = get_data()
 
@@ -135,7 +140,7 @@ def main():
         )
 
         if not df.empty:
-            update_conf_speakers(df=df, column_name="query")
+            update_conf_speakers(df=df, session=session, column_name="query")
             logger.info("Conference speakers updated successfully.")
         else:
             logger.info("No valid matches found to update.")

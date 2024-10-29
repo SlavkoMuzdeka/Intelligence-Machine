@@ -6,9 +6,9 @@ import pandas as pd
 
 from unidecode import unidecode
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from models.database.models import Base
 from psycopg2 import sql, OperationalError
-from sqlalchemy.orm import sessionmaker, joinedload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from models.database.models import (
     Talk,
@@ -16,6 +16,7 @@ from models.database.models import (
     Conference,
     LinkedInUser,
     LinkedInCompany,
+    UserCompanyAssociation,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ def create_database_session_and_engine():
     return Session(), engine
 
 
-def update_conf_speakers(df, column_name="name"):
+def update_conf_speakers(df, session, column_name="name"):
     """
     Updates LinkedIn URLs of conference speakers in the database.
 
@@ -43,7 +44,6 @@ def update_conf_speakers(df, column_name="name"):
         column_name (str): The column name corresponding to speaker names in the DataFrame.
     """
     logger.info("Updating speakers LinkedIn URLs in the database...")
-    session, _ = create_database_session_and_engine()
 
     updated_speakers = 0
     speakers_with_linkedIn_url = 0
@@ -79,7 +79,7 @@ def update_conf_speakers(df, column_name="name"):
         raise
 
 
-def insert_conf_speakers(df):
+def insert_conf_speakers(df, session):
     """
     Inserts conference and speaker data into the database.
 
@@ -89,8 +89,6 @@ def insert_conf_speakers(df):
     df = df.replace({np.nan: None})
     conf_name = df.loc[0, "conf_name"]
     conf_year = int(df.loc[0, "conf_year"])
-
-    session, _ = create_database_session_and_engine()
 
     try:
         # Insert new conference
@@ -227,24 +225,12 @@ def get_linkedIn_users(session):
     logger.info("Loading LinkedIn users from the database...")
 
     try:
-        linkedIn_users = (
-            session.query(LinkedInUser)
-            .options(joinedload(LinkedInUser.companies))
-            .all()
-        )
+        linkedIn_users = session.query(LinkedInUser).all()
         linkedIn_users_data = [
             {
                 "linkedin_url": linkedIn_user.profile_url,
                 "name": linkedIn_user.name,
                 "norm_name": normalize_name(linkedIn_user.name),
-                "firt_name": linkedIn_user.first_name,
-                "last_name": linkedIn_user.last_name,
-                "description": linkedIn_user.description,
-                "location": linkedIn_user.location,
-                "companies": [
-                    {"company_name": company.name, "company_url": company.profile_url}
-                    for company in linkedIn_user.companies
-                ],
             }
             for linkedIn_user in linkedIn_users
         ]
@@ -254,6 +240,56 @@ def get_linkedIn_users(session):
     except Exception as e:
         logger.error(f"An error occurred while fetching linkedIn users data: {e}")
         return []
+
+
+def get_user_companies(session):
+    """
+    Load all companies associated with LinkedIn users, including the status code.
+
+    Args:
+    - session (Session): Database session for querying.
+
+    Returns:
+    - pd.DataFrame: Dataframe containing LinkedIn user profile URLs, company URLs, and status codes.
+    """
+    try:
+        logger.info(
+            "Loading companies associated with LinkedIn users from the database..."
+        )
+        user_companies = session.query(UserCompanyAssociation).all()
+
+        if not user_companies:
+            logging.warning("No user companies found in the database.")
+
+        user_companies_data = [
+            {
+                "association_id": user_company.association_id,
+                "user_profile_url": user_company.user_profile_url,
+                "company_profile_url": user_company.company_profile_url,
+                "status_code": user_company.status_code,
+            }
+            for user_company in user_companies
+        ]
+        df = pd.DataFrame(user_companies_data)
+        logger.info("Successfully fetched companies associated with LinkedIn users.")
+        return pd.DataFrame(df)
+    except Exception as e:
+        logger.error(f"An error occurred while fetching user companies data: {e}")
+        raise
+
+
+def update_user_companies_status_code(session, association_id):
+    user_company_record = (
+        session.query(UserCompanyAssociation)
+        .filter(UserCompanyAssociation.association_id == association_id)
+        .one_or_none()
+    )
+
+    if user_company_record:
+        status_code = user_company_record.status_code
+        if status_code in [0, 1, 2]:
+            user_company_record.status_code = 0
+            user_company_record.update(session)
 
 
 def create_database_if_not_exists():

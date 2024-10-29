@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-from utils.google_sheets_utils import upload_conf_speakrs_with_missing_linkedin_url
+from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
     get_conf_speakers,
     get_linkedIn_users,
@@ -14,6 +14,9 @@ from utils.database_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+SHEET_ID_KEY = "CONF_LIST_SHEET_ID"
+SHEET_NAME_KEY = "CONF_SPEAKERS_WITH_MISSING_LINKEDIN_URL_SHEET_NAME"
 
 
 def setup_logging():
@@ -81,13 +84,14 @@ def main():
         # Step 4: Update speakers' LinkedIn URLs if matches found
         if not matched_df.empty:
             logger.info(f"Find {len(matched_df)} speakers LinkedIn URLs...")
-            update_conf_speakers(matched_df)
+            update_conf_speakers(matched_df, session)
 
             conf_speakers_df = get_conf_speakers(session=session, filter=True)
         else:
             logger.info("There is no matched data")
 
-        upload_conf_speakrs_with_missing_linkedin_url(conf_speakers_df)
+        conf_speakers_df = conf_speakers_df[["name"]]
+        upload_data_to_gs(conf_speakers_df, SHEET_ID_KEY, SHEET_NAME_KEY)
 
     except Exception as e:
         logger.error(f"An error occurred in the main process: {str(e)}")

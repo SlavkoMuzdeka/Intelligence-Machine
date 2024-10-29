@@ -51,9 +51,9 @@ def get_gs_companies():
         raise
 
 
-def upload_conf_speakers_and_topics(df):
+def upload_data_to_gs(df, sheet_id_key, sheet_name_key):
     """
-    Uploads a DataFrame to a specified Google Sheet after replacing NaN values.
+    Uploads a DataFrame to a specified Google Sheet.
 
     Args:
         df (pd.DataFrame): DataFrame to upload to Google Sheets.
@@ -61,62 +61,19 @@ def upload_conf_speakers_and_topics(df):
         Exception: If there's an error during the upload process.
     """
     try:
-        logger.info(
-            "Uploading list of conference speakers and their topics to Google Sheet..."
-        )
+        logger.info("Uploading data to Google Sheet...")
 
         # Replace NaN values to avoid InvalidJSONError
         df = df.fillna("")
 
         wks = _get_wks(
-            sheet_id_key="CONF_LIST_SHEET_ID",
-            sheet_name_key="CONF_LIST_OF_SPEAKERS_AND_TOPICS_SHEET_NAME",
+            sheet_id_key=sheet_id_key,
+            sheet_name_key=sheet_name_key,
         )
 
+        wks.clear()
         wks.update([df.columns.values.tolist()] + df.values.tolist())
-        logger.info(
-            "List of conference speakers and their topics uploaded to Google Sheet."
-        )
-    except Exception as e:
-        logger.error(f"Error uploading DataFrame to Google Sheets: {e}")
-        raise
-
-
-def upload_conf_speakrs_with_missing_linkedin_url(df):
-    """
-    Uploads a DataFrame of conference speakers missing LinkedIn URLs to a Google Sheet.
-
-    Args:
-        df (pd.DataFrame): DataFrame containing speaker information, including a 'name' column.
-
-    Raises:
-        Exception: If there's an error during the upload process.
-    """
-    try:
-        logger.info(
-            "Uploading conference speakers with missing LinkedIn URL to Google Sheet..."
-        )
-
-        # Replace NaN values to avoid InvalidJSONError
-        df = df.fillna("")
-
-        df = df[["name"]]
-
-        wks = _get_wks(
-            sheet_id_key="CONF_LIST_SHEET_ID",
-            sheet_name_key="CONF_SPEAKERS_WITH_MISSING_LINKEDIN_URL_SHEET_NAME",
-        )
-        sheet_df = pd.DataFrame(wks.get_all_records())
-
-        if not sheet_df.empty:
-            missing_df = df[~df["name"].isin(sheet_df["name"])]
-            wks.append_rows(missing_df.values.tolist())
-        else:
-            wks.update([df.columns.values.tolist()] + df.values.tolist())
-
-        logger.info(
-            "List of conference speakers with their missing LinkedIn URL uploaded to Google Sheet."
-        )
+        logger.info("Data uploaded to Google Sheet.")
     except Exception as e:
         logger.error(f"Error uploading DataFrame to Google Sheets: {e}")
         raise
