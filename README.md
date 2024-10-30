@@ -38,9 +38,8 @@ This Python script automates the process of collecting, processing, and storing 
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Setup Logging]
-    B --> C[Create Database If Not Exists]
-    C --> D[Fetch Unscraped Conferences from Google Sheets]
+    A[Start] --> B[Create Database If Not Exists]
+    B --> D[Fetch Unscraped Conferences from Google Sheets]
     
     D --> E{Are there Unscraped Conferences?}
     E -- No --> G[End]
@@ -97,11 +96,9 @@ This Python script automates the process of matching conference speakers with th
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Setup Logging]
-    B --> C[Create Database Session and Engine]
+    A[Start] --> B[Load Conference Speakers Without LinkedIn URLs]
     
-    C --> D[Load Conference Speakers Without LinkedIn URLs]
-    D --> F[Load LinkedIn Users from Database]
+    B --> F[Load LinkedIn Users from Database]
     
     F --> G[Match Conference Speakers with LinkedIn Users]
     
@@ -172,10 +169,9 @@ This Python script is responsible for finding and updating LinkedIn URLs for con
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Setup Logging]
+    A[Start] --> B[Fetch Data from LinkedIn Search Export phantom]
     
-    B --> C[Fetch Data from LinkedIn Search Export phantom]
-    C --> D{Is Data Empty?}
+    B --> D{Is Data Empty?}
     
     D -- Yes --> F[End]
     
@@ -225,12 +221,9 @@ This Python script is designed to merge data about conference speakers with thei
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Setup Logging]
+    A[Start] --> B[Fetch Speaker Data]
 
-    B --> C[Create Database Session and Engine]
-
-    C --> D[Fetch Speaker Data]
-    D --> E[Fetch Conference Talks Data]
+    B --> E[Fetch Conference Talks Data]
 
     E --> F{Are Speaker Data or Conference Talks Data Empty?}
 
