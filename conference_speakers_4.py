@@ -4,8 +4,8 @@ import pandas as pd
 from dotenv import load_dotenv
 from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
+    get_talks,
     get_speakers,
-    get_conf_talks,
     create_database_session_and_engine,
 )
 
@@ -113,7 +113,7 @@ def main():
 
     try:
         speakers_df = get_speakers(session)
-        conf_talks_df = get_conf_talks(session)
+        conf_talks_df = get_talks(session)
 
         if speakers_df.empty or conf_talks_df.empty:
             logging.warning("No data available to process.")
