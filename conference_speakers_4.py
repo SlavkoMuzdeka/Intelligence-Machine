@@ -6,23 +6,19 @@ from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
     get_talks,
     get_speakers,
-    create_database_session_and_engine,
 )
 
 load_dotenv(override=True)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+    datefmt="%d-%m-%Y %H:%M:%S",
+)
 
 logger = logging.getLogger(__name__)
 SHEET_ID_KEY = "CONF_LIST_SHEET_ID"
 SHEET_NAME_KEY = "CONF_LIST_OF_SPEAKERS_AND_TOPICS_SHEET_NAME"
-
-
-def _setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(message)s",
-        datefmt="%d-%m-%Y %H:%M:%S",
-    )
 
 
 def find_speaker_talks(speakers_df, talks_df):
@@ -47,7 +43,7 @@ def find_speaker_talks(speakers_df, talks_df):
                 {
                     "name": "first",
                     "website_url": "first",
-                    "linkedin_url": "first",
+                    "linkedIn_url": "first",
                     "talk_title": lambda x: list(x),  # List of talks
                     "conference_name": lambda x: list(x),  # List of conferences
                     "conference_year": lambda x: list(x),  # List of years
@@ -81,7 +77,7 @@ def _build_speaker_talks_df(grouped):
         row_data = {
             "Name": row["name"],
             "Website URL": row["website_url"],
-            "LinkedIn URL": row["linkedin_url"],
+            "LinkedIn URL": row["linkedIn_url"],
         }
 
         unique_talks = set()
@@ -107,13 +103,10 @@ def main():
     Main function to fetch speaker and talk data, find talks for each speaker,
     and output the result to a CSV file.
     """
-    _setup_logging()
-
-    session, _ = create_database_session_and_engine()
-
+    logger.info("Script is running...")
     try:
-        speakers_df = get_speakers(session)
-        conf_talks_df = get_talks(session)
+        speakers_df = get_speakers()
+        conf_talks_df = get_talks()
 
         if speakers_df.empty or conf_talks_df.empty:
             logging.warning("No data available to process.")

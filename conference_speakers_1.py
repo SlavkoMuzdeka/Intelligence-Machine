@@ -1,5 +1,5 @@
-import os
 import logging
+import numpy as np
 import pandas as pd
 
 from dotenv import load_dotenv
@@ -7,12 +7,12 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from pytube import Playlist
-from openai import RateLimitError
 from utils.google_sheets_utils import get_gs_conferences
 from utils.database_utils import (
-    insert_talks,
+    insert_talk,
+    insert_speaker,
+    insert_conference,
     create_database_if_not_exists,
-    create_database_session_and_engine,
 )
 from utils.conference_speakers_utils import (
     get_db_conferences,
@@ -22,18 +22,12 @@ from utils.conference_speakers_utils import (
     merge_website_df_with_youtube_df,
 )
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+    datefmt="%d-%m-%Y %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
-
-
-def setup_logging():
-    """
-    Configures logging for the script.
-    """
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(message)s",
-        datefmt="%d-%m-%Y %H:%M:%S",
-    )
 
 
 def get_unscraped_conferences():
@@ -107,9 +101,6 @@ def get_speakers_from_conf_website(row) -> pd.DataFrame:
         merged_df = pd.concat([merged_df, pom_df], ignore_index=True)
         merged_df.drop(columns=["norm_name"], inplace=True)
 
-    merged_df["conf_name"] = row["Name"]
-    merged_df["conf_year"] = int(row["Year"])
-
     if "website_url" not in list(merged_df.columns):
         merged_df["website_url"] = None
 
@@ -125,11 +116,15 @@ def get_speakers_from_conf_website(row) -> pd.DataFrame:
         lambda x: None if pd.notna(x) and "linkedin" in x else x
     )
 
-    # Save the scraped data to CSV
-    data_path = os.path.join(
-        os.getcwd(), "Data", "website", f"{row['Name']}_{row['Year']}.csv"
-    )
-    merged_df.to_csv(data_path, index=False)
+    merged_df["conf_name"] = row["Name"]
+    merged_df["conf_year"] = int(row["Year"])
+
+    # # Save the scraped data to CSV
+    # import os
+    # data_path = os.path.join(
+    #     os.getcwd(), "Data", "website", f"{row['Name']}_{row['Year']}.csv"
+    # )
+    # merged_df.to_csv(data_path, index=False)
     return merged_df
 
 
@@ -183,11 +178,13 @@ def get_speakers_from_yt_playlist(
             "conf_year",
         ]
     ]
-    # Save the scraped data to CSV
-    data_path = os.path.join(
-        os.getcwd(), "Data", "yt", f"{conf_name}_{conf_year}_yt.csv"
-    )
-    speakers_df.to_csv(data_path, index=False)
+
+    # # Save the scraped data to CSV
+    # import os
+    # data_path = os.path.join(
+    #     os.getcwd(), "Data", "yt", f"{conf_name}_{conf_year}_yt.csv"
+    # )
+    # speakers_df.to_csv(data_path, index=False)
     return speakers_df
 
 
@@ -196,16 +193,17 @@ def main():
     Main function to scrape conference data from both websites and YouTube playlists,
     merge the data, and insert into the database.
     """
-    setup_logging()
+    logger.info("Script is running...")
 
     create_database_if_not_exists()
-    session, _ = create_database_session_and_engine()
 
     df = get_unscraped_conferences()
 
     if df.empty:
         logger.info("All conferences have been scraped. Nothing to process.")
         return
+
+    df = df[:2]
 
     for _, row in df.iterrows():
         try:
@@ -232,17 +230,19 @@ def main():
             merged_df = merge_website_df_with_youtube_df(website_df, youtube_df)
 
             if not merged_df.empty:
-                insert_talks(merged_df, session)
+                merged_df = merged_df.replace({np.nan: None})
+                insert_conference(conf_name, int(conf_year))
+
+                for _, row in merged_df.iterrows():
+                    insert_speaker(row)
+                    insert_talk(row)
+
                 logger.info(f"Inserted data for {conf_name} ({conf_year}).")
                 logger.info(
                     f"Successfully scraped speakers from {conf_name} conference"
                 )
             else:
                 logger.info(f"No data found for {conf_name} ({conf_year}).")
-        except RateLimitError as rle:
-            logger.error(
-                f"Rate limit error while processing {conf_name} ({conf_year}): {rle}"
-            )
         except Exception as e:
             logger.error(f"Error while processing {conf_name} ({conf_year}): {e}")
 

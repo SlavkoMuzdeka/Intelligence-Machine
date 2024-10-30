@@ -1,7 +1,6 @@
 import os
 import logging
 import psycopg2
-import numpy as np
 import pandas as pd
 
 from unidecode import unidecode
@@ -9,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models.database.models import Base
 from psycopg2 import sql, OperationalError
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from models.database.models import (
     Talk,
     Speaker,
@@ -20,7 +19,6 @@ from models.database.models import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 # -------------------------- Database Initialization and Setup -------------------------- #
 
@@ -82,69 +80,28 @@ def create_database_if_not_exists():
             conn.close()
 
 
-def _create_tables():
-    """
-    Create tables in the specified database.
-    """
-    try:
-        session, engine = create_database_session_and_engine()
-        Base.metadata.create_all(engine)
-        logger.info("Tables created successfully.")
-    except SQLAlchemyError as e:
-        logger.error(f"Error creating tables: {e}")
-        raise
-    finally:
-        session.close()
+# -------------------------- Global session object -------------------------- #
 
+session, engine = create_database_session_and_engine()
 
 # -------------------------- Speaker CRUD Operations -------------------------- #
 
 
-def get_speakers(session, filter=False):
+def get_speakers(filter_condition=None):
     """
-    Fetches all speaker data from the database and converts it to a DataFrame.
+    Fetches speaker data from the database as a DataFrame.
 
     Args:
-        session (Session): SQLAlchemy database session.
-        filter (boolean): If set to true, return conference speakers which linkedIn URL is None,
-        else return all speakers
+        filter_condition (Optional): Condition to filter speakers.
 
     Returns:
-        pd.DataFrame: DataFrame containing speaker information.
-
-    Raises:
-        Exception: If any error occurs during the database query.
+        pd.DataFrame: Speaker information including name, website, LinkedIn, and normalized name.
     """
-    try:
-        if filter:
-            logger.info("Loading conference speakers without LinkedIn URL...")
-            speakers = (
-                session.query(Speaker).filter(Speaker.linkedIn_url.is_(None)).all()
-            )
-        else:
-            logging.info("Fetching speakers data from the database...")
-            speakers = session.query(Speaker).all()
-
-        if not speakers:
-            logging.warning("No speakers found in the database.")
-
-        speaker_data = [
-            {
-                "name": speaker.name,
-                "website_url": speaker.website_url,
-                "linkedin_url": speaker.linkedIn_url,
-                "norm_name": normalize_name(speaker.name),
-            }
-            for speaker in speakers
-        ]
-        logging.info("Successfully fetched conference speakers.")
-        return pd.DataFrame(speaker_data)
-    except Exception as e:
-        logger.info(f"An error occurred while fetching speakers data: {e}")
-        raise
+    return _fetch_data(model=Speaker, filter_condition=filter_condition)
 
 
-def update_speakers(df, session, column_name="name"):
+# TODO Change this function to only update one speaker
+def update_speakers(df, column_name="name"):
     """
     Updates LinkedIn URLs of conference speakers in the database.
 
@@ -188,218 +145,221 @@ def update_speakers(df, session, column_name="name"):
         raise
 
 
+def insert_speaker(row):
+    """
+    Inserts a speaker into the database if they do not already exist.
+
+    Args:
+        row (pd.Series): A row from the DataFrame containing speaker details.
+                         Expected keys include 'speaker_name', 'website_url', and 'linkedIn_url'.
+    """
+    _insert_data(
+        model=Speaker,
+        filter_condition=(Speaker.name == row["speaker_name"]),
+        name=row["speaker_name"],
+        website_url=row["website_url"],
+        linkedIn_url=row["linkedIn_url"],
+    )
+
+
+# -------------------------- Conference CRUD Operations -------------------------- #
+
+
+def insert_conference(name, year):
+    """
+    Inserts a conference into the database if it does not already exist.
+
+    Args:
+        name (str): The name of the conference.
+        year (int): The year of the conference.
+    """
+    _insert_data(
+        model=Conference,
+        filter_condition=((Conference.name == name) & (Conference.year == year)),
+        name=name,
+        year=year,
+    )
+
+
 # -------------------------- Talk CRUD Operations -------------------------- #
 
 
-def get_talks(session):
+def get_talks():
     """
     Fetches all conference talk data from the database and converts it to a DataFrame.
 
-    Args:
-        session (Session): SQLAlchemy database session.
-
     Returns:
         pd.DataFrame: DataFrame containing conference talk information.
-
-    Raises:
-        Exception: If any error occurs during the database query.
     """
-
-    try:
-        logging.info("Fetching conference talks data from the database...")
-        talks = session.query(Talk).all()
-
-        if not talks:
-            logging.warning("No conference talks found in the database.")
-
-        talk_data = [
-            {
-                "speaker_name": talk.speaker_name,
-                "conference_name": talk.conference_name,
-                "conference_year": talk.conference_year,
-                "talk_title": talk.talk_title,
-                "norm_name": normalize_name(talk.speaker_name),
-            }
-            for talk in talks
-        ]
-        logging.info("Successfully fetched conference talks data.")
-        return pd.DataFrame(talk_data)
-    except Exception as e:
-        logging.error(f"An error occurred while fetching conference talks data: {e}")
-        raise
+    return _fetch_data(model=Talk, norm_by_column="speaker_name")
 
 
-def insert_talks(df, session):
+def insert_talk(row):
     """
-    Inserts talk data into the database.
+    Inserts a talk into the database.
 
     Args:
-        df (pd.DataFrame): DataFrame containing speaker and conference details.
+        row (pd.Series): A row from the DataFrame containing talk details.
+                         Expected keys include 'speaker_name', 'conf_name', 'conf_year',
+                         'talk_title', and 'company'.
     """
-    df = df.replace({np.nan: None})
-    conf_name = df.loc[0, "conf_name"]
-    conf_year = int(df.loc[0, "conf_year"])
-
-    try:
-        # Insert new conference
-        conference = Conference(name=conf_name, year=conf_year)
-        conference.insert(session)
-
-        for _, row in df.iterrows():
-            speaker_name = row["speaker_name"]
-
-            # Check if speaker exists
-            speaker_exists = (
-                session.query(Speaker)
-                .filter(Speaker.name == speaker_name)
-                .one_or_none()
-            )
-
-            # Insert new speaker if not exists
-            if not speaker_exists:
-                speaker = Speaker(
-                    name=speaker_name,
-                    website_url=row["website_url"],
-                    linkedIn_url=row["linkedIn_url"],
-                )
-                speaker.insert(session)
-
-            talk = Talk(
-                speaker_name=speaker_name,
-                conference_name=conf_name,
-                conference_year=conf_year,
-                talk_title=row["talk_title"],
-                company=row["company"],
-            )
-            talk.insert(session)
-    except IntegrityError:
-        session.rollback()
-        logger.info(
-            f"Conference '{conf_name} ({conf_year})' already exists in the database."
-        )
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Failed to insert conference and speakers - ERROR: {e}")
-        raise
+    _insert_data(
+        model=Talk,
+        filter_condition=None,
+        speaker_name=row["speaker_name"],
+        conference_name=row["conf_name"],
+        conference_year=row["conf_year"],
+        talk_title=row["talk_title"],
+        company=row["company"],
+    )
 
 
 # -------------------------- LinkedIn User CRUD Operations -------------------------- #
 
 
-def get_linkedIn_users(session):
+def get_linkedIn_users():
     """
     Load all LinkedIn users from the database.
 
     Returns:
     - pd.DataFrame: Dataframe containing LinkedIn users data.
     """
-    logger.info("Loading LinkedIn users from the database...")
+    return _fetch_data(model=LinkedInUser)
 
-    try:
-        linkedIn_users = session.query(LinkedInUser).all()
-        linkedIn_users_data = [
-            {
-                "linkedin_url": linkedIn_user.profile_url,
-                "name": linkedIn_user.name,
-                "norm_name": normalize_name(linkedIn_user.name),
-            }
-            for linkedIn_user in linkedIn_users
-        ]
-        df = pd.DataFrame(linkedIn_users_data)
-        logging.info("Successfully fetched LinkedIn users from database.")
-        return df
-    except Exception as e:
-        logger.error(f"An error occurred while fetching linkedIn users data: {e}")
-        return []
+
+def insert_linkedIn_user(row):
+    """
+    Inserts a LinkedIn user into the database if not present.
+
+    Args:
+        session (Session): Database session.
+        row (dict): User data, including "profileUrl", "name", "firstName",
+                    "lastName", "job", and "location".
+    """
+    _insert_data(
+        model=LinkedInUser,
+        filter_condition=(LinkedInUser.profile_url == row["profileUrl"]),
+        profile_url=row["profileUrl"],
+        name=row["name"],
+        first_name=row["firstName"],
+        last_name=row["lastName"],
+        description=row["job"],
+        location=row["location"],
+    )
+
+
+# -------------------------- LinkedIn Company CRUD Operations -------------------------- #
+
+
+def insert_linkedIn_company(row):
+    """
+    Inserts a LinkedIn company into the database if not present.
+
+    Args:
+        row (dict): Company data, including "query" and "company".
+    """
+    _insert_data(
+        model=LinkedInCompany,
+        filter_condition=(LinkedInCompany.profile_url == row["query"]),
+        profile_url=row["query"],
+        name=row["company"],
+    )
 
 
 # -------------------------- User Company Association CRUD Operations -------------------------- #
 
 
-def get_user_companies(session, filter=None):
-    try:
-        if not filter:
-            logger.info(
-                "Loading companies associated with LinkedIn users from the database..."
-            )
-        user_companies = session.query(UserCompanyAssociation)
+def get_user_company_associations():
+    """
+    Fetches LinkedIn user-company associations from the database.
 
-        if filter:
-            user_companies = user_companies.filter_by(user_profile_url=filter)
-
-        user_companies = user_companies.all()
-
-        if not user_companies:
-            if not filter:
-                logging.warning("No user companies found in the database.")
-            return []
-
-        user_companies_data = [
-            {
-                "association_id": user_company.association_id,
-                "user_profile_url": user_company.user_profile_url,
-                "company_profile_url": user_company.company_profile_url,
-                "status_code": user_company.status_code,
-            }
-            for user_company in user_companies
-        ]
-        if not filter:
-            logger.info(
-                "Successfully fetched companies associated with LinkedIn users."
-            )
-        return user_companies_data
-    except Exception as e:
-        logger.error(f"An error occurred while fetching user companies data: {e}")
-        raise
+    Returns:
+    - pd.DataFrame: Dataframe containing User-company association data.
+    """
+    return _fetch_data(model=UserCompanyAssociation)
 
 
-def insert_user_companies(session, row, status_code):
-    try:
-        profile_url = row["profileUrl"]
-        company_url = row["query"]
+def insert_user_company(row, status_code):
+    """
+    Inserts a UserCompanyAssociation instance into the database if not present.
 
-        # Helper function to check existence and insert if not exists
-        def check_and_insert(model, profile_url, **kwargs):
-            exists = (
-                session.query(model)
-                .filter(model.profile_url == profile_url)
-                .one_or_none()
-            )
-            if not exists:
-                instance = model(profile_url=profile_url, **kwargs)
-                # instance.insert(session)  # Uncomment this to perform the insert
-                return instance
-            return exists
-
-        # Check and insert LinkedIn User
-        check_and_insert(
-            LinkedInUser,
-            profile_url,
-            name=row["name"],
-            first_name=row["firstName"],
-            last_name=row["lastName"],
-            description=row["job"],
-            location=row["location"],
-        )
-
-        # Check and insert LinkedIn Company
-        check_and_insert(LinkedInCompany, company_url, name=row["company"])
-
-        # Create UserCompanyAssociation
-        user_company_association = UserCompanyAssociation(
-            user_profile_url=profile_url,
-            company_profile_url=company_url,
-            status_code=status_code,
-        )
-        # user_company_association.insert(session)  # Uncomment this to perform the insert
-
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Failed to insert employee and company: {e}")
-        raise
+    Args:
+        row (dict): Company data, including "profileUrl" and "query".
+        status_code (int): Status code of employee.
+    """
+    _insert_data(
+        model=UserCompanyAssociation,
+        filter_condition=None,
+        user_profile_url=row["profileUrl"],
+        company_profile_url=row["query"],
+        status_code=status_code,
+    )
 
 
 # --------------------------- Helper Functions ------------------------ #
+
+
+def _create_tables():
+    """
+    Create tables in the specified database.
+    """
+    try:
+        Base.metadata.create_all(engine)
+        logger.info("Tables created successfully.")
+    except SQLAlchemyError as e:
+        logger.error(f"Error creating tables: {e}")
+        raise
+
+
+def _insert_data(model, filter_condition=None, **kwargs):
+    """
+    Checks for the existence of an entry based on the filter condition and inserts if not exists.
+
+    Args:
+        model: ORM model class
+        filter_condition: Filter condition for checking existence
+        kwargs: Attributes for creating the new instance if it doesn't exist
+    """
+    obj = None
+    if filter_condition is not None:
+        obj = session.query(model).filter(filter_condition).one_or_none()
+
+    if obj is None:
+        instance = model(**kwargs)
+        instance.insert(session)
+
+
+def _fetch_data(model, norm_by_column="name", filter_condition=None):
+    """
+    Fetches data from the database based on the provided model and filter condition.
+
+    Args:
+        model: ORM model class to fetch data from.
+        filter_condition (Optional): Condition to filter results.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the fetched data or an empty DataFrame if no data is found.
+    """
+    logging.info(f"Fetching data from {model.__name__}...")
+
+    if filter_condition is not None:
+        data = session.query(model).filter(filter_condition).all()
+    else:
+        data = session.query(model).all()
+
+    if not data:
+        logging.warning(f"No records found in {model.__name__}.")
+        return pd.DataFrame()
+
+    df = pd.DataFrame(
+        [
+            {col.name: getattr(record, col.name) for col in model.__table__.columns}
+            for record in data
+        ]
+    )
+    df["norm_name"] = df[norm_by_column].apply(normalize_name)
+    logging.info(f"Successfully fetched data from {model.__name__}.")
+    return df
 
 
 def normalize_name(name: str) -> str:
@@ -413,34 +373,3 @@ def normalize_name(name: str) -> str:
         str: Normalized speaker name.
     """
     return unidecode(name).strip().lower()
-
-
-# def update_user_companies_status_code(df, session):
-#     updated_counter = 0
-#     non_updated_counter = 0
-
-#     for _, row in df.iterrows():
-#         association_id = row["association_id"]
-#         user_company_record = (
-#             session.query(UserCompanyAssociation)
-#             .filter(UserCompanyAssociation.association_id == association_id)
-#             .one_or_none()
-#         )
-
-#         if user_company_record:
-#             status_code = user_company_record.status_code
-#             if status_code in [1, 2]:
-#                 user_company_record.status_code = 0
-#                 updated_counter += 1
-#                 # user_company_record.update(session)
-#             else:
-#                 non_updated_counter += 1
-#         else:
-#             logger.info(
-#                 f"Cannot find user company association which id is {association_id}"
-#             )
-#             print(f"Cannot find user company association which id is {association_id}")
-#     logger.info(f"I have update status codes for {updated_counter} employees.")
-#     print(
-#         f"I have update status codes for {updated_counter} employees. Not updated for {non_updated_counter} employees."
-#     )

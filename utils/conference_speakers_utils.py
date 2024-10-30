@@ -70,6 +70,7 @@ def scrape_page_with_scrapegraph_ai(source: str) -> pd.DataFrame:
         if "speakers" in result:
             if len(result.get("speakers")) > 0:
                 df = pd.DataFrame(result.get("speakers"))
+                df = df[df["speaker_name"].notna()]
                 df["norm_name"] = df["speaker_name"].apply(normalize_name)
                 logger.info("Speakers page scraped successfully...")
                 return df
@@ -115,6 +116,7 @@ def interpret_agenda_screenshots(conf_name: str, conf_year: int) -> pd.DataFrame
 
         if agenda_speakers_dfs:
             df = pd.concat(agenda_speakers_dfs, ignore_index=True)
+            df = df[df["speaker_name"].notna()]
             df["norm_name"] = df["speaker_name"].apply(normalize_name)
             logger.info(
                 "Speakers talks scraped successfully from agenda screenshoots..."
