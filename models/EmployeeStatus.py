@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class EmployeeStatus(Enum):
-    CURRENT = 0  # Represents that nothing has happened; the employee is still with the company
-    NEW = 1  # Represents a new employment status
-    SWITCHED = 2  # Represents a change in employment (e.g., to a different company)
-    FORMER = 3  # Represents that the employee is no longer with the company
+    ACTIVE = 0  # The employee is currently with the company
+    NEW_HIRE = 1  # Represents a recently hired employee
+    TRANSFERRED = 2  # Represents a change in employment status (e.g., moved to a different department or company)
+    FORMER_EMPLOYEE = 3  # Represents an employee who has left the company
