@@ -100,49 +100,25 @@ def get_speakers(filter_condition=None):
     return _fetch_data(model=Speaker, filter_condition=filter_condition)
 
 
-# TODO Change this function to only update one speaker
-def update_speakers(df, column_name="name"):
+def update_speaker(speaker_name, new_linkedin_url):
     """
-    Updates LinkedIn URLs of conference speakers in the database.
+    Updates LinkedIn URLs of conference speaker in the database.
 
     Args:
-        df (pd.DataFrame): DataFrame containing speaker data.
-        column_name (str): The column name corresponding to speaker names in the DataFrame.
+        speaker_name (str): Name of the speaker.
+        new_linkedin_url (str): New LinkedIn URL of user.
     """
-    logger.info("Updating speakers LinkedIn URLs in the database...")
 
-    updated_speakers = 0
-    speakers_with_linkedIn_url = 0
+    speaker = session.query(Speaker).filter(Speaker.name == speaker_name).one_or_none()
 
-    try:
-        for _, row in df.iterrows():
-            speaker_name = row[column_name]
-            new_linkedin_url = row["linkedin_url"]
-
-            speaker = (
-                session.query(Speaker)
-                .filter(Speaker.name == speaker_name)
-                .one_or_none()
-            )
-
-            if speaker:
-                if speaker.linkedIn_url == None:
-                    speaker.linkedIn_url = new_linkedin_url
-                    speaker.update(session)
-                    updated_speakers += 1
-                else:
-                    speakers_with_linkedIn_url += 1
-            else:
-                logger.info(f"Speaker '{speaker_name}' not found in the database.")
-
-        logger.info(f"Updated LinkedIn URLs for {updated_speakers} speakers.")
-        logger.info(
-            f"Skipped {speakers_with_linkedIn_url} speakers (already had LinkedIn URLs)."
-        )
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Failed to update LinkedIn URLs for speakers - ERROR: {e}")
-        raise
+    if speaker:
+        if speaker.linkedin_url == None:
+            speaker.linkedin_url = new_linkedin_url
+            speaker.update(session)
+            return True
+    else:
+        logger.info(f"Speaker '{speaker_name}' not found in the database.")
+    return False
 
 
 def insert_speaker(row):
@@ -151,14 +127,14 @@ def insert_speaker(row):
 
     Args:
         row (pd.Series): A row from the DataFrame containing speaker details.
-                         Expected keys include 'speaker_name', 'website_url', and 'linkedIn_url'.
+                         Expected keys include 'speaker_name', 'website_url', and 'linkedin_url'.
     """
     _insert_data(
         model=Speaker,
         filter_condition=(Speaker.name == row["speaker_name"]),
         name=row["speaker_name"],
         website_url=row["website_url"],
-        linkedIn_url=row["linkedIn_url"],
+        linkedin_url=row["linkedin_url"],
     )
 
 
@@ -217,7 +193,7 @@ def insert_talk(row):
 # -------------------------- LinkedIn User CRUD Operations -------------------------- #
 
 
-def get_linkedIn_users():
+def get_linkedin_users():
     """
     Load all LinkedIn users from the database.
 
@@ -227,7 +203,7 @@ def get_linkedIn_users():
     return _fetch_data(model=LinkedInUser)
 
 
-def insert_linkedIn_user(row):
+def insert_linkedin_user(row):
     """
     Inserts a LinkedIn user into the database if not present.
 
@@ -251,7 +227,7 @@ def insert_linkedIn_user(row):
 # -------------------------- LinkedIn Company CRUD Operations -------------------------- #
 
 
-def insert_linkedIn_company(row):
+def insert_linkedin_company(row):
     """
     Inserts a LinkedIn company into the database if not present.
 

@@ -43,7 +43,7 @@ def find_speaker_talks(speakers_df, talks_df):
                 {
                     "name": "first",
                     "website_url": "first",
-                    "linkedIn_url": "first",
+                    "linkedin_url": "first",
                     "talk_title": lambda x: list(x),  # List of talks
                     "conference_name": lambda x: list(x),  # List of conferences
                     "conference_year": lambda x: list(x),  # List of years
@@ -77,7 +77,7 @@ def _build_speaker_talks_df(grouped):
         row_data = {
             "Name": row["name"],
             "Website URL": row["website_url"],
-            "LinkedIn URL": row["linkedIn_url"],
+            "LinkedIn URL": row["linkedin_url"],
         }
 
         unique_talks = set()

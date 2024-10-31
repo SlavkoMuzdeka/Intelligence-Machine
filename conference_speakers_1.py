@@ -109,8 +109,8 @@ def get_speakers_from_conf_website(row) -> pd.DataFrame:
             return row["website_url"]
         return None
 
-    linkedIn_urls = merged_df.apply(extract_linkedin_url, axis=1)
-    merged_df.insert(2, "linkedIn_url", linkedIn_urls)
+    linkedin_urls = merged_df.apply(extract_linkedin_url, axis=1)
+    merged_df.insert(2, "linkedin_url", linkedin_urls)
 
     merged_df["website_url"] = merged_df["website_url"].apply(
         lambda x: None if pd.notna(x) and "linkedin" in x else x
@@ -162,7 +162,7 @@ def get_speakers_from_yt_playlist(
     speakers_df["conf_name"] = conf_name
     speakers_df["conf_year"] = conf_year
     speakers_df["website_url"] = None
-    speakers_df["linkedIn_url"] = None
+    speakers_df["linkedin_url"] = None
 
     # Remove rows with missing speaker names
     speakers_df = speakers_df[speakers_df["speaker_name"].notna()].reset_index(
@@ -172,7 +172,7 @@ def get_speakers_from_yt_playlist(
         [
             "speaker_name",
             "website_url",
-            "linkedIn_url",
+            "linkedin_url",
             "talk_title",
             "conf_name",
             "conf_year",

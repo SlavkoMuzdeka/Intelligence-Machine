@@ -58,19 +58,19 @@ class Speaker(BaseModel):
     Attributes:
         name (str): The speaker's unique name (Primary Key).
         website_url (str): The URL of the speaker's website.
-        linkedIn_url (str): The LinkedIn URL of the speaker.
+        linkedin_url (str): The LinkedIn URL of the speaker.
     """
 
     __tablename__ = "speaker"
 
     name = Column(String, primary_key=True)
     website_url = Column(String)
-    linkedIn_url = Column(String)
+    linkedin_url = Column(String)
 
-    def __init__(self, name: str, website_url: str, linkedIn_url: str):
+    def __init__(self, name: str, website_url: str, linkedin_url: str):
         self.name = name
         self.website_url = website_url
-        self.linkedIn_url = linkedIn_url
+        self.linkedin_url = linkedin_url
 
 
 class Conference(BaseModel):

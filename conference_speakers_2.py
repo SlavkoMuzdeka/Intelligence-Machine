@@ -9,8 +9,8 @@ from models.database.models import Speaker
 from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
     get_speakers,
-    update_speakers,
-    get_linkedIn_users,
+    update_speaker,
+    get_linkedin_users,
 )
 
 logging.basicConfig(
@@ -24,7 +24,7 @@ SHEET_ID_KEY = "CONF_LIST_SHEET_ID"
 SHEET_NAME_KEY = "CONF_SPEAKERS_WITH_MISSING_LINKEDIN_URL_SHEET_NAME"
 
 
-def match_conf_speakers_with_linkedIn_users(conf_speakers_df, linkedIn_users_df):
+def match_conf_speakers_with_linkedin_users(conf_speakers_df, linkedin_users_df):
     """
     Match conference speakers with LinkedIn users by normalized name to retrieve LinkedIn URLs.
 
@@ -35,7 +35,7 @@ def match_conf_speakers_with_linkedIn_users(conf_speakers_df, linkedIn_users_df)
     Returns:
     - pd.DataFrame: Merged DataFrame with matched LinkedIn URLs.
     """
-    if linkedIn_users_df.empty:
+    if linkedin_users_df.empty:
         logging.info("There are no LinkedIn users in database...")
         return pd.DataFrame()
 
@@ -44,12 +44,12 @@ def match_conf_speakers_with_linkedIn_users(conf_speakers_df, linkedIn_users_df)
     # Merge on normalized names
     merged_df = pd.merge(
         conf_speakers_df.drop(columns=["linkedin_url"]),
-        linkedIn_users_df.drop(columns=["name"]),
+        linkedin_users_df.drop(columns=["name"]),
         how="left",
         on="norm_name",
     )
     # Return only speakers with matched LinkedIn URLs
-    return merged_df[merged_df["linkedin_url"].notna()].reset_index(drop=True)
+    return merged_df[merged_df["profile_url"].notna()].reset_index(drop=True)
 
 
 def main():
@@ -62,27 +62,42 @@ def main():
     try:
         # Step 1: Load conference speakers without LinkedIn URLs
         conf_speakers_df = get_speakers(
-            filter_condition=(Speaker.linkedIn_url.is_(None))
+            filter_condition=(Speaker.linkedin_url.is_(None))
         )
         logger.info(
             f"Conference speakers without linkedin url - total {len(conf_speakers_df)}"
         )
 
         # Step 2: Load LinkedIn users (company employees)
-        linkedIn_users_df = get_linkedIn_users()
+        linkedin_users_df = get_linkedin_users()
 
         # Step 3: Match conference speakers with LinkedIn users
-        matched_df = match_conf_speakers_with_linkedIn_users(
-            conf_speakers_df.copy(), linkedIn_users_df.copy()
+        matched_df = match_conf_speakers_with_linkedin_users(
+            conf_speakers_df.copy(), linkedin_users_df.copy()
         )
 
         # Step 4: Update speakers' LinkedIn URLs if matches found
         if not matched_df.empty:
             logger.info(f"Find {len(matched_df)} speakers LinkedIn URLs...")
-            update_speakers(matched_df)
+            logger.info("Updating speakers LinkedIn URLs in the database...")
+
+            updated_speakers = 0
+            speakers_with_linkedin_url = 0
+
+            for _, row in matched_df.iterrows():
+                is_updated = update_speaker(row["name"], row["linkedin_url"])
+                if is_updated:
+                    updated_speakers += 1
+                else:
+                    speakers_with_linkedin_url += 1
+
+            logger.info(f"Updated LinkedIn URLs for {updated_speakers} speakers.")
+            logger.info(
+                f"Skipped {speakers_with_linkedin_url} speakers (already had LinkedIn URLs)."
+            )
 
             conf_speakers_df = get_speakers(
-                filter_condition=(Speaker.linkedIn_url.is_(None))
+                filter_condition=(Speaker.linkedin_url.is_(None))
             )
         else:
             logger.info("There is no matched data")

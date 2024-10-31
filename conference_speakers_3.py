@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-from utils.database_utils import update_speakers
+from utils.database_utils import update_speaker
 from utils.openai_utils import get_openai_filtered_profiles
 from models.phantom.SearchExportScraper import SearchExportScraper
 
@@ -132,7 +132,22 @@ def main():
         )
 
         if not df.empty:
-            update_speakers(df=df, column_name="query")
+            logger.info("Updating speakers LinkedIn URLs in the database...")
+
+            updated_speakers = 0
+            speakers_with_linkedin_url = 0
+
+            for _, row in df.iterrows():
+                is_updated = update_speaker(row["query"], row["linkedin_url"])
+                if is_updated:
+                    updated_speakers += 1
+                else:
+                    speakers_with_linkedin_url += 1
+
+            logger.info(f"Updated LinkedIn URLs for {updated_speakers} speakers.")
+            logger.info(
+                f"Skipped {speakers_with_linkedin_url} speakers (already had LinkedIn URLs)."
+            )
             logger.info("Conference speakers updated successfully.")
         else:
             logger.info("No valid matches found to update.")
