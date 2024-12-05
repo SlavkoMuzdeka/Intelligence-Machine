@@ -203,18 +203,16 @@ def main():
         logger.info("All conferences have been scraped. Nothing to process.")
         return
 
-    df = df[:2]
-
-    for _, row in df.iterrows():
+    for index, row in df.iterrows():
         try:
             conf_name = row["Name"]
             conf_year = row["Year"]
 
             if row["Name"] == "" and row["Year"] == "":
                 logger.info(
-                    f"You must provide name and year of conference (these fields in Google Sheet are required)..."
+                    f"You must provide name and year of conference in row {index} (these fields in Google Sheet are required)..."
                 )
-                break
+                continue
 
             logger.info(f"Processing {conf_name} ({conf_year})...")
 

@@ -2,13 +2,14 @@ import logging
 import pandas as pd
 
 from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
 from utils.google_sheets_utils import upload_data_to_gs
 from utils.database_utils import (
     get_talks,
     get_speakers,
 )
-
-load_dotenv(override=True)
 
 logging.basicConfig(
     level=logging.INFO,
