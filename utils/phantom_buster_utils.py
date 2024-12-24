@@ -1,4 +1,3 @@
-import os
 import json
 import logging
 import requests
@@ -28,6 +27,7 @@ def get_scraped_data(container_id: str, base_url: str, api_key: str) -> pd.DataF
         )
 
         if response.get("resultObject"):
+            logger.info(f"Data found in container with ID {container_id}")
             res_obj = json.loads(response.get("resultObject"))
 
             if isinstance(res_obj, dict):
@@ -77,9 +77,9 @@ def get_all_agent_containers(agent_id: str, base_url: str, api_key: str) -> list
         raise
 
 
-def read_container_ids(file_path: str) -> list:
+def get_saved_ids(file_path: str) -> list:
     """
-    Reads all container IDs from a file.
+    Reads all container IDs from a csv.
 
     Args:
         file_path (str): Path to the file containing container IDs.
@@ -88,35 +88,29 @@ def read_container_ids(file_path: str) -> list:
         list: A list of container IDs.
     """
     try:
-        if os.path.exists(file_path):
-            with open(file_path, "r") as file:
-                container_ids = [line.strip() for line in file]
-            return container_ids
-        else:
-            logger.info(f"File not found: {file_path}")
-            return []
-    except Exception as ex:
-        logger.error(f"Error reading container IDs from {file_path}: {ex}")
-        raise
+        df = pd.read_csv(file_path)
+        ids = df["container_id"].tolist()
+        return ids
+    except:
+        return []
 
 
-def update_container_id(container_id: str, file_path: str, mode: str = "a") -> None:
+def save_ids(container_ids: list[int], file_path: str) -> None:
     """
-    Updates the file with a new container ID.
+    Saves a list of container IDs to a CSV file.
 
     Args:
-        container_id (str): The new container ID to append to the file.
-        file_path (str): The file where the container IDs are stored.
-        mode (str, optional): The file mode for writing. Default is "a" (append).
+        container_ids (list[int]): The list of container IDs to save.
+        file_path (str): The path to the CSV file.
 
     Returns:
         None
     """
     try:
-        with open(file_path, mode=mode) as file:
-            file.write(f"{container_id}\n")
+        df = pd.DataFrame(container_ids, columns=["container_id"])
+        df.to_csv(file_path, index=False)
     except Exception as ex:
-        logger.error(f"Error updating container ID {container_id} in {file_path}: {ex}")
+        logger.error(f"Error saving container IDs to CSV file {file_path}: {ex}")
         raise
 
 

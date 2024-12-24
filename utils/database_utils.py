@@ -41,6 +41,7 @@ def create_database_if_not_exists():
     Creates the PostgreSQL database if it does not exist and creates tables.
     """
     db_name = os.getenv("DATABASE_NAME")
+    cursor, conn = None, None
 
     try:
         # Connect to the default 'postgres' database
@@ -67,6 +68,8 @@ def create_database_if_not_exists():
             cursor.execute(sql.SQL(f"CREATE DATABASE {db_name}"))
             logger.info(f"Database '{db_name}' has been created successfully!")
             _create_tables()
+        else:
+            logger.info(f"Database {db_name} already exists.")
     except OperationalError as e:
         logger.error(f"Error connecting to the PostgreSQL server: {e}")
         raise
@@ -252,16 +255,17 @@ def get_user_company_associations():
     Returns:
     - pd.DataFrame: Dataframe containing User-company association data.
     """
-    return _fetch_data(model=UserCompanyAssociation)
+    return _fetch_data(model=UserCompanyAssociation, norm_by_column=None)
 
 
-def insert_user_company(row, status_code):
+def insert_user_company_association(row, status_code, last_updated):
     """
     Inserts a UserCompanyAssociation instance into the database if not present.
 
     Args:
         row (dict): Company data, including "profileUrl" and "query".
         status_code (int): Status code of employee.
+        last_updated (datetime): A timestamp indicating the last modification.
     """
     _insert_data(
         model=UserCompanyAssociation,
@@ -269,6 +273,32 @@ def insert_user_company(row, status_code):
         user_profile_url=row["profileUrl"],
         company_profile_url=row["query"],
         status_code=status_code,
+        last_updated=last_updated,
+    )
+
+
+def get_user_company_association(user_profile_url, company_profile_url):
+    """
+    Fetches a specific user-company association from the database.
+
+    Queries the `UserCompanyAssociation` table for an association between a given
+    user profile and company profile URL.
+
+    Args:
+        user_profile_url (str): The LinkedIn profile URL of the user.
+        company_profile_url (str): The LinkedIn profile URL of the company.
+
+    Returns:
+        UserCompanyAssociation | None: The matching user-company association record,
+        or None if no match is found.
+    """
+    return (
+        session.query(UserCompanyAssociation)
+        .filter(
+            UserCompanyAssociation.user_profile_url == user_profile_url,
+            UserCompanyAssociation.company_profile_url == company_profile_url,
+        )
+        .one_or_none()
     )
 
 
@@ -316,8 +346,6 @@ def _fetch_data(model, norm_by_column="name", filter_condition=None):
     Returns:
         pd.DataFrame: DataFrame containing the fetched data or an empty DataFrame if no data is found.
     """
-    logging.info(f"Fetching data from {model.__name__}...")
-
     if filter_condition is not None:
         data = session.query(model).filter(filter_condition).all()
     else:
@@ -333,8 +361,8 @@ def _fetch_data(model, norm_by_column="name", filter_condition=None):
             for record in data
         ]
     )
-    df["norm_name"] = df[norm_by_column].apply(normalize_name)
-    logging.info(f"Successfully fetched data from {model.__name__}.")
+    if norm_by_column is not None:
+        df["norm_name"] = df[norm_by_column].apply(normalize_name)
     return df
 
 

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from utils.google_sheets_utils import upload_data_to_gs
+from utils.company_employees_utils import get_all_employees
 from utils.database_utils import (
     get_talks,
     get_speakers,
@@ -19,7 +20,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 SHEET_ID_KEY = "CONF_LIST_SHEET_ID"
-SHEET_NAME_KEY = "CONF_LIST_OF_SPEAKERS_AND_TOPICS_SHEET_NAME"
+ALL_SPEAKERS = "CONF_LIST_OF_SPEAKERS_AND_TOPICS_SHEET_NAME"
+FORMER = "CONF_LIST_OF_SPEAKERS_AND_TOPICS_FORMER_SHEET_NAME"
 
 
 def find_speaker_talks(speakers_df, talks_df):
@@ -101,8 +103,8 @@ def _build_speaker_talks_df(grouped):
 
 def main():
     """
-    Main function to fetch speaker and talk data, find talks for each speaker,
-    and output the result to a CSV file.
+    Main function to process speaker and talk data, enrich it with employee information,
+    and upload the results to Google Sheets.
     """
     logger.info("Script is running...")
     try:
@@ -114,7 +116,18 @@ def main():
             return
 
         speaker_talks_df = find_speaker_talks(speakers_df, conf_talks_df)
-        upload_data_to_gs(speaker_talks_df, SHEET_ID_KEY, SHEET_NAME_KEY)
+        employees_df = get_all_employees()
+        new_df = pd.merge(
+            left=speaker_talks_df,
+            right=employees_df.drop(columns=["name"]),
+            how="left",
+            left_on="LinkedIn URL",
+            right_on="profile_url",
+        )
+        new_df.drop(columns=["profile_url"], inplace=True)
+        former_df = new_df[new_df["color"] == "red"].reset_index(drop=True)
+        upload_data_to_gs(new_df, SHEET_ID_KEY, ALL_SPEAKERS)
+        upload_data_to_gs(former_df, SHEET_ID_KEY, FORMER)
     except Exception as e:
         logging.error(f"An error occurred in the main function: {e}")
 

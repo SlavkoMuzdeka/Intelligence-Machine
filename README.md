@@ -206,7 +206,10 @@ This Python script is designed to merge data about conference speakers with thei
 3. **Data Aggregation**  
    - Merges the retrieved data, aligning talks with their respective speakers, while ensuring the uniqueness of each speaker's engagements. This aggregation is formatted to display detailed speaker profiles, showing the conferences they participated in along with the titles of their talks.
 
-4. **Google Sheets Integration**  
+4. **Employee Data Enrichment**
+   -  Adds employee data by merging speaker profiles with employee information fetched from an external source, such as LinkedIn profiles. It categorizes speakers into different groups based on certain attributes, such as those marked as "former" employees.
+
+5. **Google Sheets Integration**  
    - After processing, the organized data is uploaded to Google Sheets for easy sharing and accessibility.
 
 #### Requirements
@@ -233,7 +236,77 @@ flowchart TD
     
     J --> L[Build Final Speaker Talks DataFrame]
 
-    L --> M[Upload Speaker Talks to Google Sheets]
+    L --> M[Fetch Employee Data]
+
+    M --> N[Merge Speaker Talks with Employee Data]
+
+    N --> O{Are Any Speakers Former?}
+
+    O -- Yes --> P[Process Former Employees]
+
+    P --> Q[Upload Speaker Talks to Google Sheets]
+
+    O -- No --> Q
    
-    M --> H[End]
+    Q --> H[End]
+```
+
+## Company Employees Scraper
+
+### Script 1: `company_employees.py`
+
+This Python script is designed to scrape employee data for various companies and update the corresponding database and Google Sheets. It handles new employee data, processes former employees, and ensures that the employee-company associations are accurately maintained. The final result is uploaded to Google Sheets for easy access and sharing.
+
+#### Key Functions
+
+1. **Scraping Data**
+   - The `CompanyEmployeesScraper` class is used to scrape employee data from LinkedIn or other sources.
+   - The scraped data includes employee profiles, their associated companies, and the timestamps for when the data was collected.
+
+2. **Processing New Scraped Employees**
+   - This function processes the newly scraped employee data, updating existing employee-company associations in the database or inserting new records if no association exists.
+   - The function checks whether each employee is still associated with the company and updates their status if necessary.
+   - It inserts new records for employees, companies, and the associations between them when no prior data exists.
+
+3. **Processing Former Employees**
+   - This function handles updating the status of former employees who are no longer working with the company.
+   - It fetches all employee-company associations and identifies employees who are no longer listed in the scraped data.
+   - Their employment status is updated to "unemployed" in the database to reflect their departure from the company.
+  
+4. **Database Integration**
+   - The script uses various utility functions to interact with the database, ensuring that the employee and company data is correctly inserted or updated.
+   - It manages employee-company associations, inserting new records and updating the status of existing ones.
+
+5. **Google Sheets Integration**
+   - After processing the data, the script uploads both current and former employee data to Google Sheets, where it can be further analyzed or shared.
+   - The data is uploaded to two separate sheets: one for current employees and one for former employees.
+
+#### Requirements
+
+- **Environment Setup**: Uses the `.env` file for environment variables, loaded via the `dotenv` library.
+- **Database**: The script interacts with a database to store employee and company information, handling the creation of associations and updates to the status of employees.
+- **Google Sheets**: The final output is uploaded to Google Sheets, requiring a configured API to handle data transfer.
+
+
+#### Flowchart for `Script 1: company_employee.py`
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Ensure Database is Created]
+
+    B --> C[Scrape Employee Data]
+
+    C --> D{Is Scraped Data Available?}
+
+    D -- No --> E[End]
+    
+    D -- Yes --> F[Process New Scrapped Employees]
+    
+    F --> G[Process Former Employees]
+    
+    G --> H[Upload All Employees to Google Sheets]
+    
+    H --> I[Upload Former Employees to Google Sheets]
+    
+    I --> E[End]
 ```

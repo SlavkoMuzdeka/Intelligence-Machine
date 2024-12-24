@@ -1,3 +1,8 @@
 env
 .env
 __pycache__
+sql_queries.txt
+pom.py
+Data/website/
+Data/yt/
+Data/*.csv

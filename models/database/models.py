@@ -1,7 +1,15 @@
 import logging
 
+from datetime import datetime
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy import Column, ForeignKey, Integer, String, ForeignKeyConstraint
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    TIMESTAMP,
+    ForeignKey,
+    ForeignKeyConstraint,
+)
 
 Base = declarative_base()
 
@@ -238,6 +246,8 @@ class UserCompanyAssociation(BaseModel):
         user_profile_url (str): The LinkedIn profile URL of the user (Foreign Key).
         company_profile_url (str): The LinkedIn profile URL of the company (Foreign Key).
         status_code (int): Employment status of the user in the company.
+        update_count (int): Counter of how many times the employment status has been updated.
+        last_updated (datetime): A timestamp with timezone indicating the last modification, set manually during record updates.
     """
 
     __tablename__ = "user_company_association"
@@ -250,6 +260,8 @@ class UserCompanyAssociation(BaseModel):
         String, ForeignKey("linkedin_company.profile_url"), nullable=False
     )
     status_code = Column(Integer, nullable=False)
+    update_count = Column(Integer, default=0)
+    last_updated = Column(TIMESTAMP(timezone=True), nullable=False)
 
     # Define foreign key constraints
     __table_args__ = (
@@ -264,20 +276,13 @@ class UserCompanyAssociation(BaseModel):
     )
 
     def __init__(
-        self, user_profile_url: str, company_profile_url: str, status_code: int
+        self,
+        user_profile_url: str,
+        company_profile_url: str,
+        status_code: int,
+        last_updated: datetime,
     ):
         self.user_profile_url = user_profile_url
         self.company_profile_url = company_profile_url
         self.status_code = status_code
-
-    def set_status_code(self, code: int):
-        """
-        Sets the status code for the user-company relationship.
-
-        Args:
-            code (int): The status code to set.
-        """
-        if code in (0, 1, 2, 3):
-            self.status_code = code
-        else:
-            raise ValueError("Invalid status code. Must be 0, 1, 2, or 3.")
+        self.last_updated = last_updated

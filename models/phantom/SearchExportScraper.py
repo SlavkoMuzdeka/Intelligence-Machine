@@ -6,15 +6,30 @@ logger = logging.getLogger(__name__)
 
 
 class SearchExportScraper(PhantomScraper):
+    """
+    This class extends the `PhantomScraper` class and includes functionality to process
+    and filter data specific to search export results.
+    """
 
     def __init__(self):
+        """
+        Initializes the `SearchExportScraper` class.
+
+        Sets the agent name to "SEARCH_EXPORT" by calling the parent class constructor.
+        """
         super().__init__(agent_name="SEARCH_EXPORT")
 
-    def get_scraped_data(self):
-        scraped_data = self.scrape_data()
-        return scraped_data
-
     def filter_df(self, df):
+        """
+        Filters the scraped DataFrame.
+
+        Args:
+            df (pandas.DataFrame): The scraped data to be filtered.
+
+        Returns:
+            pandas.DataFrame: A filtered DataFrame with irrelevant columns dropped
+            and renamed for standardization.
+        """
         columns_to_drop = [
             col
             for col in ["vmid", "sharedConnections", "url", "category", "timestamp"]
